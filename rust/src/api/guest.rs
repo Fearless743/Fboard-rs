@@ -125,7 +125,8 @@ pub fn plan_json(plan: &PlanRow, settings: &crate::settings::Settings) -> Value 
 
 pub async fn comm_config(State(state): State<SharedState>) -> ApiResult<Response> {
     let s = state.settings().await;
-    let data = json!({
+    let captcha_type = s.str("captcha_type", "recaptcha");
+    let mut data = json!({
         "tos_url": s.value("tos_url"),
         "is_email_verify": if s.bool("email_verify", false) { 1 } else { 0 },
         "is_invite_force": if s.bool("invite_force", false) { 1 } else { 0 },
@@ -133,16 +134,27 @@ pub async fn comm_config(State(state): State<SharedState>) -> ApiResult<Response
             Value::Array(s.arr("email_whitelist_suffix"))
         } else { Value::from(0) },
         "is_captcha": if s.bool("captcha_enable", false) { 1 } else { 0 },
-        "captcha_type": s.str("captcha_type", "recaptcha"),
-        "recaptcha_site_key": s.value("recaptcha_site_key"),
-        "recaptcha_v3_site_key": s.value("recaptcha_v3_site_key"),
-        "recaptcha_v3_score_threshold": s.f64("recaptcha_v3_score_threshold", 0.5),
-        "turnstile_site_key": s.value("turnstile_site_key"),
+        "captcha_type": captcha_type.clone(),
         "app_description": s.value("app_description"),
         "app_url": s.value("app_url"),
         "logo": s.value("logo"),
         "is_recaptcha": if s.bool("captcha_enable", false) { 1 } else { 0 },
     });
+    // 仅下发当前启用的验证码类型所需的公钥，不暴露未使用类型的配置
+    let captcha_public = match captcha_type.as_str() {
+        "turnstile" => json!({ "turnstile_site_key": s.value("turnstile_site_key") }),
+        "recaptcha-v3" => json!({
+            "recaptcha_v3_site_key": s.value("recaptcha_v3_site_key"),
+            "recaptcha_v3_score_threshold": s.f64("recaptcha_v3_score_threshold", 0.5),
+        }),
+        "recaptcha" => json!({ "recaptcha_site_key": s.value("recaptcha_site_key") }),
+        _ => json!({}),
+    };
+    if let (Some(map), Some(extra)) = (data.as_object_mut(), captcha_public.as_object()) {
+        for (key, value) in extra {
+            map.insert(key.clone(), value.clone());
+        }
+    }
     let app_url = if s.str("app_url", "").is_empty() {
         state.cfg.app_url.clone()
     } else {
