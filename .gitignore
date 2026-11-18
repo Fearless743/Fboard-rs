@@ -1,0 +1,24 @@
+# Rust build output
+/rust/target
+/target
+**/*.rs.bk
+
+# Runtime configuration and data
+.env
+.env.*
+!.env.example
+/storage
+*.log
+
+# User plugins are deployment-specific
+/plugins/*
+!/plugins/.gitignore
+
+# Generated admin SPA assets (built from Fboard-admin)
+/public/assets/admin
+
+# Tooling
+.codegraph
+/.codegraph
+.idea
+.DS_Store

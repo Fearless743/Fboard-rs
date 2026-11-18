@@ -1,0 +1,17 @@
+{
+  "code": "demo",
+  "name": "Demo Lua Plugin",
+  "type": "feature",
+  "version": "1.0.0",
+  "description": "Minimal Lua plugin example",
+  "author": "Fboard",
+  "entry": "init.lua",
+  "permissions": [],
+  "form": {
+    "message": {
+      "type": "string",
+      "default": "hello",
+      "label": "Message"
+    }
+  }
+}

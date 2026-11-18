@@ -1,0 +1,9 @@
+.git
+.github
+/rust/target
+/target
+/codegraph
+/.codegraph
+/plugins
+*.log
+.env

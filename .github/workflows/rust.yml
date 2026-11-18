@@ -1,0 +1,26 @@
+name: Rust
+
+on:
+  push:
+    branches: ["main", "master", "rust-rewrite"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test
+        run: cargo test --manifest-path rust/Cargo.toml
+      - name: Build release
+        run: cargo build --release --manifest-path rust/Cargo.toml
+
+  image:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f rust/Dockerfile -t fboard-rs:ci .
