@@ -52,7 +52,10 @@ pub fn next_reset_at(from: i64, method: i64, anchor_day: Option<u32>) -> Option<
     Some(next.timestamp())
 }
 
-fn shift_months(dt: chrono::DateTime<chrono::Local>, months: i32) -> chrono::DateTime<chrono::Local> {
+fn shift_months(
+    dt: chrono::DateTime<chrono::Local>,
+    months: i32,
+) -> chrono::DateTime<chrono::Local> {
     shift_months_anchored(dt, months, dt.day())
 }
 
@@ -73,7 +76,11 @@ fn shift_months_anchored(
 }
 
 fn days_in_month(year: i32, month: u32) -> u32 {
-    let (ny, nm) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    let (ny, nm) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
     let first = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap_or_default();
     let next = chrono::NaiveDate::from_ymd_opt(ny, nm, 1).unwrap_or_default();
     (next - first).num_days().max(1) as u32
@@ -91,13 +98,18 @@ pub async fn refresh_next_reset(pool: &MySqlPool, user_id: i64) -> anyhow::Resul
         return Ok(());
     };
     let plan: Option<PlanRow> = match plan_id {
-        Some(id) => sqlx::query_as("SELECT * FROM v2_plan WHERE id = ?")
-            .bind(id)
-            .fetch_optional(pool)
-            .await?,
+        Some(id) => {
+            sqlx::query_as("SELECT * FROM v2_plan WHERE id = ?")
+                .bind(id)
+                .fetch_optional(pool)
+                .await?
+        }
         None => None,
     };
-    let method = resolve_method(plan.as_ref().and_then(|p| p.reset_traffic_method), &settings);
+    let method = resolve_method(
+        plan.as_ref().and_then(|p| p.reset_traffic_method),
+        &settings,
+    );
     let next = next_reset_at(util::now(), method, None);
     let _ = expired_at;
     sqlx::query("UPDATE v2_user SET next_reset_at = ? WHERE id = ?")
@@ -121,13 +133,18 @@ pub async fn run_reset_pass(state: &SharedState) -> anyhow::Result<usize> {
     let mut reset_count = 0usize;
     for (user_id, plan_id, old_u, old_d, _transfer, _count, _next) in due {
         let plan: Option<PlanRow> = match plan_id {
-            Some(id) => sqlx::query_as("SELECT * FROM v2_plan WHERE id = ?")
-                .bind(id)
-                .fetch_optional(&state.db)
-                .await?,
+            Some(id) => {
+                sqlx::query_as("SELECT * FROM v2_plan WHERE id = ?")
+                    .bind(id)
+                    .fetch_optional(&state.db)
+                    .await?
+            }
             None => None,
         };
-        let method = resolve_method(plan.as_ref().and_then(|p| p.reset_traffic_method), &settings);
+        let method = resolve_method(
+            plan.as_ref().and_then(|p| p.reset_traffic_method),
+            &settings,
+        );
         let now = util::now();
         let next = next_reset_at(now, method, None);
 
@@ -163,10 +180,17 @@ pub async fn scheduler(state: SharedState) {
     loop {
         ticker.tick().await;
         state.cache.purge_expired();
-        match run_reset_pass(&state).await {
-            Ok(0) => {}
-            Ok(count) => tracing::info!(count, "traffic reset scheduler"),
-            Err(err) => tracing::warn!(error = %err, "traffic reset scheduler failed"),
+        let state_for_task = state.clone();
+        let result = state
+            .run_exclusive("traffic:reset", 120, || async move {
+                run_reset_pass(&state_for_task).await
+            })
+            .await;
+        match result {
+            Some(Ok(0)) => {}
+            Some(Ok(count)) => tracing::info!(count, "traffic reset scheduler"),
+            Some(Err(err)) => tracing::warn!(error = %err, "traffic reset scheduler failed"),
+            None => tracing::debug!("traffic reset skipped: another instance holds the lock"),
         }
     }
 }

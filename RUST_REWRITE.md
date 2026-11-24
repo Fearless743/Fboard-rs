@@ -40,18 +40,29 @@
 | 区域 | 状态 | 说明 |
 |------|------|------|
 | WebSocket 实时同步 | 已实现（单实例 + 可选 Redis） | 机器/节点握手、全量同步、设备广播、内核操作与日志；Redis pub/sub 跨实例下发/同步/ack |
+| 多实例协调 | 已实现 | Redis 分布式锁用于流量重置/提醒邮件；配置与插件失效广播；提醒去重跨实例 |
 | 管理端统计排行/队列面板 | 已实现 | 统计接口返回真实聚合；队列面板返回 Horizon 兼容结构（Rust 核心不跑 Laravel 队列） |
 | 机器升级/重启/日志 | 已实现 | 通过 WebSocket 下发内核启停/重启/升级并回传 ack/日志；离线机器返回明确错误 |
 | 礼品卡复杂规则 | 已实现 | 余额/流量/设备/有效期/套餐/重置包、盲盒、节日加成、邀请返利、使用限制 |
 | Telegram 功能插件 | 已实现 | Rust 内置 webhook、命令、工单与支付通知；已实测 |
-| Lua 插件系统 | 已实现 | `plugins/<code>/plugin.json` + `init.lua`；支持启停/配置/UI/action/上传，Rust 直接加载 |
+| Lua 插件系统 | 已实现 | `plugins/<code>/plugin.json` + `init.lua`；支持启停/配置/UI/action/上传；sha256、VM 超时、HTTP 域名白名单 |
 | 插件隔离 | 已实现 | 受限 Lua 状态（无 os/io/package/debug）、64MB 内存上限、HTTP 权限白名单 |
-| 容器镜像 | 已实现 | `rust/Dockerfile` 多阶段构建 + `rust/docker-compose.example.yml`（MariaDB/Redis） |
+| 容器镜像 | 已实现 | `rust/Dockerfile` 多阶段构建 + `rust/docker-compose.example.yml`；CI 发布 GHCR 镜像，含 admin SPA 与 healthcheck |
 | 支付插件 | 已实现 | EPay / AlipayF2F / BTCPay / CoinPayments / Coinbase / MGate |
 | 邮件模板 | 已实现 | 内置 `resources/views/mail/default/*.html` 渲染、DB 覆盖、占位符默认值、邮件日志 |
 | 到期/流量提醒 | 已实现 | `remind_mail_enable` 开启后后台每 30 分钟检查，24 小时内去重 |
 | 后台高级节点批量替换 | 已实现 | 批量删除/重置/排序/字段替换/批量更新均已实现 |
 | admin SPA 逐页回归 | 已完成基础回归 | Playwright 跑通 21 个页面与主要弹窗，0 控制台/网络错误；新增页面需继续覆盖 |
+
+## 迁移与运维
+
+```bash
+cargo run --manifest-path rust/Cargo.toml -- migrate
+cargo run --manifest-path rust/Cargo.toml -- migrate status
+FBOARD_ALLOW_DESTRUCTIVE=1 cargo run --manifest-path rust/Cargo.toml -- migrate down
+```
+
+`/healthz`、`/readyz`、`/metrics` 分别用于存活、就绪与 Prometheus 基础指标。
 
 ## 运行
 
@@ -86,8 +97,8 @@ curl -s -X POST 'localhost:7001/api/v2/server/push?token=<server_token>&node_id=
 
 ## 下一步建议
 
-1. 多实例部署已支持 Redis pub/sub；继续补充 Redis 断线重连与远程节点 TTL 监控指标。
-2. 完善 Lua 插件 SDK/示例，并补充 HTTP、加密与订阅输出的兼容性测试。
+1. Redis pub/sub 已支持断线重连；后续补充远程节点 TTL 监控指标。
+2. 完善 Lua 插件 SDK/示例，并补充更多订阅输出与加密兼容性测试。
 3. 继续用 admin SPA 覆盖新增页面与写操作，补充 Lua 插件上传/启用流程回归。
-4. 增加 Rust 集成测试（testcontainers / MariaDB）与 schema 差异校验。
-5. 在 CI 中构建并发布 Rust 镜像；补充容器启动时自动 `migrate` 的可选开关。
+4. 数据库迁移集成测试已提供（设置 `FBOARD_TEST_DATABASE_URL` 后运行）；后续增加 schema 差异校验。
+5. CI 已构建并发布 GHCR 镜像；后续补充容器启动时自动 `migrate` 的可选开关。

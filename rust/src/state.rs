@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use axum::extract::FromRequestParts;
+use axum::extract::State;
 use axum::http::request::Parts;
 use axum::http::StatusCode;
-use axum::extract::State;
 use sqlx::MySqlPool;
 use tokio::sync::RwLock;
 
@@ -22,6 +22,7 @@ pub struct AppState {
     pub cache: MemoryCache,
     pub plugin: Arc<PluginRegistry>,
     pub ws: Arc<crate::ws::WsRegistry>,
+    pub redis: Option<Arc<crate::ws_redis::RedisBridge>>,
     pub started_at: i64,
 }
 
@@ -50,6 +51,28 @@ impl AppState {
         match settings {
             Ok(s) => s.subscribe_path(),
             Err(_) => "s".to_string(),
+        }
+    }
+
+    /// Run a task on at most one instance when Redis is configured. Without
+    /// Redis the task runs locally (single-instance deployment).
+    pub async fn run_exclusive<T, F, Fut>(&self, key: &str, ttl_seconds: u64, task: F) -> Option<T>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let Some(redis) = self.redis.as_ref() else {
+            return Some(task().await);
+        };
+        let token = redis.try_lock(key, ttl_seconds).await?;
+        let result = task().await;
+        redis.unlock(key, &token).await;
+        Some(result)
+    }
+
+    pub fn publish_invalidation(&self, kind: &str) {
+        if let Some(redis) = self.redis.as_ref() {
+            redis.publish_invalidation(kind);
         }
     }
 }

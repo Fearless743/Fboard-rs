@@ -23,7 +23,9 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use mlua::{Function, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value as LuaValue};
+use mlua::{
+    Function, HookTriggers, Lua, LuaOptions, LuaSerdeExt, StdLib, Table, Value as LuaValue, VmState,
+};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -35,18 +37,37 @@ pub struct LuaPlugin {
     methods: Vec<String>,
     flags: Vec<String>,
     permissions: Vec<String>,
+    timeout_ms: u64,
     lua: Arc<Mutex<Lua>>,
 }
 
 impl LuaPlugin {
-    fn invoke(lua: &Lua, method: &str, params: &Value) -> Result<Value> {
+    fn invoke(lua: &Lua, method: &str, params: &Value, timeout_ms: u64) -> Result<Value> {
         let globals = lua.globals();
         let handle: Function = globals
             .get("handle")
             .context("Lua plugin must define handle(method, params)")?;
         let params = lua.to_value(params)?;
-        let result: LuaValue = handle.call((method, params))?;
-        let value: Value = lua.from_value(result)?;
+
+        let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms.max(10));
+        lua.set_hook(
+            HookTriggers {
+                every_nth_instruction: Some(10_000),
+                ..HookTriggers::new()
+            },
+            move |_, _| {
+                if std::time::Instant::now() >= deadline {
+                    Err(mlua::Error::RuntimeError(
+                        "Lua plugin execution timeout".into(),
+                    ))
+                } else {
+                    Ok(VmState::Continue)
+                }
+            },
+        );
+        let result: mlua::Result<LuaValue> = handle.call((method, params));
+        lua.remove_hook();
+        let value: Value = lua.from_value(result?)?;
         Ok(value)
     }
 }
@@ -79,11 +100,12 @@ impl NativePlugin for LuaPlugin {
         }
         let lua = self.lua.clone();
         let method = method.to_string();
+        let timeout_ms = self.timeout_ms;
         tokio::task::spawn_blocking(move || {
             let lua = lua
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Lua state poisoned"))?;
-            Self::invoke(&lua, &method, &params)
+            Self::invoke(&lua, &method, &params, timeout_ms)
         })
         .await?
     }
@@ -187,8 +209,33 @@ fn load_one(dir: &Path) -> Result<Option<Arc<dyn NativePlugin>>> {
                 .collect()
         })
         .unwrap_or_default();
+    let http_allowlist: Vec<String> = manifest
+        .get("http_allowlist")
+        .and_then(|v| v.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_ascii_lowercase()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let timeout_ms = manifest
+        .get("timeout_ms")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5_000);
 
-    let lua = build_state(&permissions)?;
+    if let Some(expected) = manifest.get("sha256").and_then(|v| v.as_str()) {
+        let actual = hex::encode(Sha256::digest(script.as_bytes()));
+        if !actual.eq_ignore_ascii_case(expected.trim()) {
+            anyhow::bail!(
+                "Lua plugin sha256 mismatch: expected {}, got {}",
+                expected.trim(),
+                actual
+            );
+        }
+    }
+
+    let lua = build_state(&permissions, &http_allowlist)?;
     lua.load(&script)
         .set_name(script_path.display().to_string())
         .exec()
@@ -237,16 +284,18 @@ fn load_one(dir: &Path) -> Result<Option<Arc<dyn NativePlugin>>> {
         methods,
         flags,
         permissions,
+        timeout_ms,
         lua: Arc::new(Mutex::new(lua)),
     })))
 }
 
-fn build_state(permissions: &[String]) -> Result<Lua> {
+fn build_state(permissions: &[String], http_allowlist: &[String]) -> Result<Lua> {
     let libs = StdLib::STRING | StdLib::TABLE | StdLib::MATH | StdLib::UTF8 | StdLib::COROUTINE;
     let lua = Lua::new_with(libs, LuaOptions::default())?;
     lua.set_memory_limit(64 * 1024 * 1024)?;
 
     let allow_http = permissions.iter().any(|p| p == "*" || p == "http");
+    let http_allowlist = http_allowlist.to_vec();
     let fboard = lua.create_table()?;
 
     let json_table = lua.create_table()?;
@@ -340,6 +389,21 @@ fn build_state(permissions: &[String]) -> Result<Lua> {
             let url: String = options
                 .get::<Option<String>>("url")?
                 .ok_or_else(|| mlua::Error::RuntimeError("http.request requires url".into()))?;
+            if !http_allowlist.is_empty() {
+                let host = reqwest::Url::parse(&url)
+                    .ok()
+                    .and_then(|url| url.host_str().map(|h| h.to_ascii_lowercase()))
+                    .unwrap_or_default();
+                let allowed = http_allowlist.iter().any(|item| {
+                    let item = item.trim_start_matches('.');
+                    host == item || host.ends_with(&format!(".{item}"))
+                });
+                if !allowed {
+                    return Err(mlua::Error::RuntimeError(format!(
+                        "http host {host} is not in plugin allowlist"
+                    )));
+                }
+            }
             let body: Option<String> = options.get("body")?;
             let timeout: u64 = options.get::<Option<u64>>("timeout")?.unwrap_or(15);
 
@@ -430,7 +494,7 @@ mod tests {
         assert_eq!(plugin.meta().code, "demo");
         assert_eq!(plugin.meta().version, "1.2.3");
         // Use a fresh state to keep the test independent from async plumbing.
-        let state = build_state(&[]).unwrap();
+        let state = build_state(&[], &[]).unwrap();
         state
             .load(
                 r#"
@@ -441,7 +505,7 @@ mod tests {
             )
             .exec()
             .unwrap();
-        let result = LuaPlugin::invoke(&state, "echo", &json!({"value": 7})).unwrap();
+        let result = LuaPlugin::invoke(&state, "echo", &json!({"value": 7}), 5_000).unwrap();
         assert_eq!(result["value"], 7);
         assert_eq!(
             result["sha"],
@@ -452,6 +516,63 @@ mod tests {
             .get::<Option<LuaValue>>("os")
             .unwrap()
             .is_none());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn enforces_execution_timeout() {
+        let state = build_state(&[], &[]).unwrap();
+        state
+            .load("function handle() while true do end end")
+            .exec()
+            .unwrap();
+        let err = LuaPlugin::invoke(&state, "loop", &json!({}), 20).unwrap_err();
+        assert!(err.to_string().contains("timeout"), "{err}");
+    }
+
+    #[test]
+    fn enforces_http_allowlist() {
+        let state = build_state(&["http".into()], &["example.com".into()]).unwrap();
+        state
+            .load(
+                r#"
+                function handle()
+                  local ok, err = pcall(function()
+                    return fboard.http.request({ url = "https://evil.test/" })
+                  end)
+                  return { ok = ok, err = tostring(err) }
+                end
+                "#,
+            )
+            .exec()
+            .unwrap();
+        let result = LuaPlugin::invoke(&state, "http", &json!({}), 5_000).unwrap();
+        assert_eq!(result["ok"], false);
+        assert!(result["err"].as_str().unwrap().contains("allowlist"));
+    }
+
+    #[test]
+    fn verifies_lua_checksum() {
+        let root = std::env::temp_dir().join(format!(
+            "fboard-lua-sha-{}-{}",
+            std::process::id(),
+            util::random_chars(6)
+        ));
+        write_plugin(&root, "function handle() return true end");
+        let script = std::fs::read(root.join("demo/init.lua")).unwrap();
+        let sha = hex::encode(Sha256::digest(&script));
+        let manifest = format!(
+            r#"{{"code":"demo","name":"Demo","type":"feature","version":"1.0.0","sha256":"{sha}"}}"#
+        );
+        std::fs::write(root.join("demo/plugin.json"), manifest).unwrap();
+        assert_eq!(load(&[root.clone()]).len(), 1);
+
+        std::fs::write(
+            root.join("demo/plugin.json"),
+            r#"{"code":"demo","name":"Demo","type":"feature","version":"1.0.0","sha256":"deadbeef"}"#,
+        )
+        .unwrap();
+        assert!(load(&[root.clone()]).is_empty());
         let _ = std::fs::remove_dir_all(root);
     }
 }

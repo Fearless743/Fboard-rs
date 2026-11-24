@@ -86,24 +86,41 @@ pub async fn run_once(state: &SharedState) -> anyhow::Result<(usize, usize)> {
                 let within_day = expired_at > now && expired_at - 86400 < now;
                 let flag = format!("LAST_SEND_EMAIL_REMIND_EXPIRE_{}", user.id);
                 if within_day && state.cache.get(&flag).is_none() {
+                    let lock_key = format!("remind:expire:{}", user.id);
+                    let state_for_task = state.clone();
+                    let settings_for_task = settings.clone();
+                    let email = user.email.clone();
+                    let vars_for_task = vars.clone();
                     let subject = format!("{app_name} 服务即将到期");
-                    match crate::mail::send_template(
-                        &state.db,
-                        &settings,
-                        &user.email,
-                        "remindExpire",
-                        &subject,
-                        &vars,
-                    )
-                    .await
-                    {
-                        Ok(()) => {
-                            state.cache.put(flag, "1", 24 * 3600);
-                            expire_sent += 1;
-                        }
-                        Err(err) => {
-                            tracing::warn!(error = %err, email = %user.email, "expire reminder failed");
-                        }
+                    let sent = state
+                        .run_exclusive(&lock_key, 300, || async move {
+                            if state_for_task.cache.get(&flag).is_some() {
+                                return false;
+                            }
+                            match crate::mail::send_template(
+                                &state_for_task.db,
+                                &settings_for_task,
+                                &email,
+                                "remindExpire",
+                                &subject,
+                                &vars_for_task,
+                            )
+                            .await
+                            {
+                                Ok(()) => {
+                                    state_for_task.cache.put(flag, "1", 24 * 3600);
+                                    true
+                                }
+                                Err(err) => {
+                                    tracing::warn!(error = %err, email = &email, "expire reminder failed");
+                                    false
+                                }
+                            }
+                        })
+                        .await
+                        .unwrap_or(false);
+                    if sent {
+                        expire_sent += 1;
                     }
                 }
             }
@@ -115,24 +132,41 @@ pub async fn run_once(state: &SharedState) -> anyhow::Result<(usize, usize)> {
                 let ratio = used as f64 / user.transfer_enable as f64;
                 let flag = format!("LAST_SEND_EMAIL_REMIND_TRAFFIC_{}", user.id);
                 if (0.8..1.0).contains(&ratio) && state.cache.get(&flag).is_none() {
+                    let lock_key = format!("remind:traffic:{}", user.id);
+                    let state_for_task = state.clone();
+                    let settings_for_task = settings.clone();
+                    let email = user.email.clone();
+                    let vars_for_task = vars.clone();
                     let subject = format!("{app_name} 流量使用已达到 80%");
-                    match crate::mail::send_template(
-                        &state.db,
-                        &settings,
-                        &user.email,
-                        "remindTraffic",
-                        &subject,
-                        &vars,
-                    )
-                    .await
-                    {
-                        Ok(()) => {
-                            state.cache.put(flag, "1", 24 * 3600);
-                            traffic_sent += 1;
-                        }
-                        Err(err) => {
-                            tracing::warn!(error = %err, email = %user.email, "traffic reminder failed");
-                        }
+                    let sent = state
+                        .run_exclusive(&lock_key, 300, || async move {
+                            if state_for_task.cache.get(&flag).is_some() {
+                                return false;
+                            }
+                            match crate::mail::send_template(
+                                &state_for_task.db,
+                                &settings_for_task,
+                                &email,
+                                "remindTraffic",
+                                &subject,
+                                &vars_for_task,
+                            )
+                            .await
+                            {
+                                Ok(()) => {
+                                    state_for_task.cache.put(flag, "1", 24 * 3600);
+                                    true
+                                }
+                                Err(err) => {
+                                    tracing::warn!(error = %err, email = &email, "traffic reminder failed");
+                                    false
+                                }
+                            }
+                        })
+                        .await
+                        .unwrap_or(false);
+                    if sent {
+                        traffic_sent += 1;
                     }
                 }
             }

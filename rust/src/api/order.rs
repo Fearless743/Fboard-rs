@@ -590,49 +590,15 @@ pub async fn checkout(
             }),
             &ctx,
         )
-        .await
-        .or_else(|| builtin_epay_pay(&payment.config_value(), &order.trade_no, payable, &notify_url, &return_url));
+        .await;
 
     let Some(result) = result else {
-        return Err(ApiError::server("支付方式暂不可用"));
+        tracing::error!(method = %payment.payment, "payment gateway call failed; failing closed");
+        return Err(ApiError::bad_request("支付网关调用失败，请稍后重试"));
     };
     let ty = result.get("type").and_then(|v| v.as_i64()).unwrap_or(1);
     Ok(axum::Json(json!({"type": ty, "data": result.get("data").cloned().unwrap_or(Value::Null)}))
         .into_response())
-}
-
-fn builtin_epay_pay(
-    config: &Value,
-    trade_no: &str,
-    amount_cents: i64,
-    notify_url: &str,
-    return_url: &str,
-) -> Option<Value> {
-    let url = config.get("url").and_then(|v| v.as_str())?;
-    let pid = config.get("pid").and_then(|v| v.as_str())?;
-    let key = config.get("key").and_then(|v| v.as_str())?;
-    let mut params: Vec<(String, String)> = vec![
-        ("money".into(), format!("{:.2}", amount_cents as f64 / 100.0)),
-        ("name".into(), trade_no.into()),
-        ("notify_url".into(), notify_url.into()),
-        ("return_url".into(), return_url.into()),
-        ("out_trade_no".into(), trade_no.into()),
-        ("pid".into(), pid.into()),
-    ];
-    if let Some(ty) = config.get("type").and_then(|v| v.as_str()).filter(|v| !v.is_empty()) {
-        params.push(("type".into(), ty.into()));
-    }
-    params.sort_by(|a, b| a.0.cmp(&b.0));
-    let query = params
-        .iter()
-        .map(|(k, v)| format!("{k}={}", urlencoding::encode(v)))
-        .collect::<Vec<_>>()
-        .join("&");
-    let sign = util::md5_hex(&format!("{query}{key}"));
-    Some(json!({
-        "type": 1,
-        "data": format!("{}/submit.php?{query}&sign={sign}&sign_type=MD5", url.trim_end_matches('/'))
-    }))
 }
 
 pub async fn check(

@@ -40,6 +40,10 @@ pub struct WsRegistry {
 }
 
 impl WsRegistry {
+    pub fn connection_count(&self) -> usize {
+        self.nodes.len() + self.machines.len()
+    }
+
     pub fn set_bridge(&self, bridge: Arc<RedisBridge>) {
         let _ = self.bridge.set(bridge);
     }

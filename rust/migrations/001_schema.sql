@@ -7,7 +7,7 @@
 /*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `failed_jobs` (
+CREATE TABLE IF NOT EXISTS `failed_jobs` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `connection` text NOT NULL,
   `queue` text NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE `failed_jobs` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `migrations` (
+CREATE TABLE IF NOT EXISTS `migrations` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `migration` varchar(255) NOT NULL,
   `batch` int(11) NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE `migrations` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `personal_access_tokens` (
+CREATE TABLE IF NOT EXISTS `personal_access_tokens` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `tokenable_type` varchar(255) NOT NULL,
   `tokenable_id` bigint(20) unsigned NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE `personal_access_tokens` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_admin_audit_log` (
+CREATE TABLE IF NOT EXISTS `v2_admin_audit_log` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `admin_id` bigint(20) unsigned NOT NULL,
   `action` varchar(64) NOT NULL COMMENT 'Action identifier e.g. user.update',
@@ -63,7 +63,7 @@ CREATE TABLE `v2_admin_audit_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_cert_templates` (
+CREATE TABLE IF NOT EXISTS `v2_cert_templates` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(128) NOT NULL COMMENT '模板名称',
   `description` varchar(255) DEFAULT NULL COMMENT '模板描述',
@@ -77,7 +77,7 @@ CREATE TABLE `v2_cert_templates` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_commission_log` (
+CREATE TABLE IF NOT EXISTS `v2_commission_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `invite_user_id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE `v2_commission_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_coupon` (
+CREATE TABLE IF NOT EXISTS `v2_coupon` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `code` varchar(255) NOT NULL,
   `name` varchar(255) NOT NULL,
@@ -114,7 +114,7 @@ CREATE TABLE `v2_coupon` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_gift_card_code` (
+CREATE TABLE IF NOT EXISTS `v2_gift_card_code` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `template_id` int(11) NOT NULL COMMENT '模板ID',
   `code` varchar(32) NOT NULL COMMENT '兑换码',
@@ -141,7 +141,7 @@ CREATE TABLE `v2_gift_card_code` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_gift_card_template` (
+CREATE TABLE IF NOT EXISTS `v2_gift_card_template` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL COMMENT '礼品卡名称',
   `description` text DEFAULT NULL COMMENT '礼品卡描述',
@@ -166,7 +166,7 @@ CREATE TABLE `v2_gift_card_template` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_gift_card_usage` (
+CREATE TABLE IF NOT EXISTS `v2_gift_card_usage` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `code_id` int(11) NOT NULL COMMENT '兑换码ID',
   `template_id` int(11) NOT NULL COMMENT '模板ID',
@@ -193,7 +193,7 @@ CREATE TABLE `v2_gift_card_usage` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_invite_code` (
+CREATE TABLE IF NOT EXISTS `v2_invite_code` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL,
   `code` char(32) NOT NULL,
@@ -206,7 +206,7 @@ CREATE TABLE `v2_invite_code` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_knowledge` (
+CREATE TABLE IF NOT EXISTS `v2_knowledge` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `language` char(5) NOT NULL COMMENT '語言',
   `category` varchar(255) NOT NULL COMMENT '分類名',
@@ -222,7 +222,7 @@ CREATE TABLE `v2_knowledge` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_log` (
+CREATE TABLE IF NOT EXISTS `v2_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` text NOT NULL,
   `level` varchar(11) DEFAULT NULL,
@@ -239,7 +239,7 @@ CREATE TABLE `v2_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_mail_log` (
+CREATE TABLE IF NOT EXISTS `v2_mail_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `email` varchar(64) NOT NULL,
   `subject` varchar(255) NOT NULL,
@@ -252,7 +252,7 @@ CREATE TABLE `v2_mail_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_mail_templates` (
+CREATE TABLE IF NOT EXISTS `v2_mail_templates` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(64) NOT NULL,
   `subject` varchar(255) NOT NULL,
@@ -265,7 +265,7 @@ CREATE TABLE `v2_mail_templates` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_network_settings_templates` (
+CREATE TABLE IF NOT EXISTS `v2_network_settings_templates` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(128) NOT NULL COMMENT '模板名称',
   `description` varchar(255) DEFAULT NULL COMMENT '模板描述',
@@ -279,7 +279,7 @@ CREATE TABLE `v2_network_settings_templates` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_notice` (
+CREATE TABLE IF NOT EXISTS `v2_notice` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `sort` int(11) DEFAULT NULL,
   `title` varchar(255) NOT NULL,
@@ -296,7 +296,7 @@ CREATE TABLE `v2_notice` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_order` (
+CREATE TABLE IF NOT EXISTS `v2_order` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `invite_user_id` int(11) DEFAULT NULL,
   `user_id` int(11) NOT NULL,
@@ -334,7 +334,7 @@ CREATE TABLE `v2_order` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_payment` (
+CREATE TABLE IF NOT EXISTS `v2_payment` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `uuid` char(32) NOT NULL,
   `payment` varchar(16) NOT NULL,
@@ -354,7 +354,7 @@ CREATE TABLE `v2_payment` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_plan` (
+CREATE TABLE IF NOT EXISTS `v2_plan` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `group_id` int(10) unsigned DEFAULT NULL,
   `transfer_enable` bigint(20) unsigned DEFAULT NULL COMMENT 'Transfer limit in bytes',
@@ -378,7 +378,7 @@ CREATE TABLE `v2_plan` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_plugins` (
+CREATE TABLE IF NOT EXISTS `v2_plugins` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `code` varchar(255) NOT NULL,
@@ -396,7 +396,7 @@ CREATE TABLE `v2_plugins` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_server` (
+CREATE TABLE IF NOT EXISTS `v2_server` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `type` varchar(255) NOT NULL COMMENT 'Server Type',
   `code` varchar(255) DEFAULT NULL COMMENT 'Server Spectific Key',
@@ -434,7 +434,7 @@ CREATE TABLE `v2_server` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_server_group` (
+CREATE TABLE IF NOT EXISTS `v2_server_group` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `created_at` int(11) NOT NULL,
@@ -444,7 +444,7 @@ CREATE TABLE `v2_server_group` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_server_machine` (
+CREATE TABLE IF NOT EXISTS `v2_server_machine` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `token` varchar(64) NOT NULL,
@@ -461,7 +461,7 @@ CREATE TABLE `v2_server_machine` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_server_machine_load_history` (
+CREATE TABLE IF NOT EXISTS `v2_server_machine_load_history` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `machine_id` bigint(20) unsigned NOT NULL,
   `cpu` double NOT NULL DEFAULT 0,
@@ -481,7 +481,7 @@ CREATE TABLE `v2_server_machine_load_history` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_server_route` (
+CREATE TABLE IF NOT EXISTS `v2_server_route` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `remarks` varchar(255) NOT NULL,
   `match` text NOT NULL,
@@ -494,7 +494,7 @@ CREATE TABLE `v2_server_route` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_settings` (
+CREATE TABLE IF NOT EXISTS `v2_settings` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `group` varchar(255) DEFAULT NULL COMMENT '设置分组',
   `type` varchar(255) DEFAULT NULL COMMENT '设置类型',
@@ -509,7 +509,7 @@ CREATE TABLE `v2_settings` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_stat` (
+CREATE TABLE IF NOT EXISTS `v2_stat` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `record_at` int(11) NOT NULL,
   `record_type` char(1) NOT NULL,
@@ -530,7 +530,7 @@ CREATE TABLE `v2_stat` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_stat_server` (
+CREATE TABLE IF NOT EXISTS `v2_stat_server` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `server_id` int(11) NOT NULL COMMENT '节点id',
   `server_type` char(11) NOT NULL COMMENT '节点类型',
@@ -552,7 +552,7 @@ CREATE TABLE `v2_stat_server` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_stat_user` (
+CREATE TABLE IF NOT EXISTS `v2_stat_user` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL,
   `server_rate` decimal(10,2) NOT NULL,
@@ -572,7 +572,7 @@ CREATE TABLE `v2_stat_user` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_subscribe_templates` (
+CREATE TABLE IF NOT EXISTS `v2_subscribe_templates` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL COMMENT 'Template key, e.g. singbox, clash',
   `content` mediumtext DEFAULT NULL COMMENT 'Template content',
@@ -584,7 +584,7 @@ CREATE TABLE `v2_subscribe_templates` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_ticket` (
+CREATE TABLE IF NOT EXISTS `v2_ticket` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL,
   `subject` varchar(255) NOT NULL,
@@ -602,7 +602,7 @@ CREATE TABLE `v2_ticket` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_ticket_message` (
+CREATE TABLE IF NOT EXISTS `v2_ticket_message` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL,
   `ticket_id` int(11) NOT NULL,
@@ -617,7 +617,7 @@ CREATE TABLE `v2_ticket_message` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_traffic_reset_logs` (
+CREATE TABLE IF NOT EXISTS `v2_traffic_reset_logs` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) NOT NULL COMMENT '用户ID',
   `reset_type` varchar(50) NOT NULL COMMENT '重置类型',
@@ -640,7 +640,7 @@ CREATE TABLE `v2_traffic_reset_logs` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_user` (
+CREATE TABLE IF NOT EXISTS `v2_user` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `invite_user_id` int(11) DEFAULT NULL,
   `telegram_id` bigint(20) DEFAULT NULL,
@@ -693,7 +693,7 @@ CREATE TABLE `v2_user` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_user_login_log` (
+CREATE TABLE IF NOT EXISTS `v2_user_login_log` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned NOT NULL COMMENT '用户 ID',
   `ip` varchar(45) NOT NULL COMMENT '登录 IP',
@@ -708,7 +708,7 @@ CREATE TABLE `v2_user_login_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `v2_withdrawal` (
+CREATE TABLE IF NOT EXISTS `v2_withdrawal` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `ticket_id` int(10) unsigned DEFAULT NULL,
   `user_id` int(11) NOT NULL,
@@ -727,7 +727,7 @@ CREATE TABLE `v2_withdrawal` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `withdrawal_messages` (
+CREATE TABLE IF NOT EXISTS `withdrawal_messages` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `withdrawal_id` int(10) unsigned NOT NULL COMMENT '提现单ID',
   `user_id` int(10) unsigned NOT NULL COMMENT '发送者ID（管理员或客服）',

@@ -1,0 +1,1 @@
+var e=new Map;function t(t,n){if(!t||typeof n!=`function`){console.warn(`[FboardAdmin] registerExtension ignored: invalid id or component`,t);return}e.set(t,n)}function n(t){return e.get(t)}function r(t){return e.has(t)}function i(){return Array.from(e.keys())}export{t as i,r as n,i as r,n as t};

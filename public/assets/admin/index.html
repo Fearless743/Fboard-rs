@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Admin</title>
+    <meta name="description" content="Admin Dashboard UI built with Shadcn and Vite." />
+    <!-- 站点设置由后端注入到 window.settings -->
+    <script src="/settings.js"></script>
+    <script src="/settings.local.js"></script>
+    <!-- 首屏应用主题，避免 zustand rehydrate 前闪白 -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("fboard-admin-settings");
+          var theme = "light";
+          var sidebarTheme = "light";
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            var state = parsed && parsed.state ? parsed.state : parsed;
+            if (state) {
+              if (state.theme) theme = state.theme;
+              if (state.sidebarTheme) sidebarTheme = state.sidebarTheme;
+            }
+          }
+          var isDark =
+            theme === "dark" ||
+            (theme === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", isDark);
+          document.documentElement.classList.toggle(
+            "sidebar-dark",
+            sidebarTheme === "dark"
+          );
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/admin/assets/index-6XViJQ9_.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/react-DlU9tEAh.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/react-dom-BR3B17yI.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/preload-helper-Kajbz_k5.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/jsx-runtime-DM7fwwJL.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/api-DsUsaWna.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/button-DulUy6oH.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/mail-DBcqYXdy.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/useQuery-CX0FmbGU.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/Combination-xV1ydg2B.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/dist-CdcyXk-6.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/chevron-down-DmvwayJm.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/middleware-DB1LSZpr.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/trash-2-DRpHSsoM.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/save-kI6gnaDt.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/x-CpEQbeIi.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/client-Dbep0M-I.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/auth-DYmjTHrO.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/purify.es-B0g7npkC.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/registry-CXprwgwg.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/slot-IYM4Os2Z.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/chevron-right-DsEYt3ka.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/dist-rwBkTGwq2.js">
+    <link rel="modulepreload" crossorigin href="/assets/admin/assets/dist-S-Fgrons.js">
+    <link rel="stylesheet" crossorigin href="/assets/admin/assets/index-ZopUF7wE.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

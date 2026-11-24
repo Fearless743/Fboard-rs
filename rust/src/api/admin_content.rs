@@ -2378,6 +2378,7 @@ pub async fn plugin_upload(
     let _ = tokio::fs::remove_file(&archive_path).await;
     result.map_err(|e| ApiError::bad_request(format!("插件包无效: {e}")))?;
     state.plugin.reload();
+    state.publish_invalidation("plugins.reloaded");
     Ok(ok(json!(true)))
 }
 
@@ -2440,6 +2441,7 @@ pub async fn plugin_delete(
         .execute(&state.db)
         .await?;
     state.plugin.reload();
+    state.publish_invalidation("plugins.reloaded");
     Ok(ok(json!(true)))
 }
 
@@ -2587,3 +2589,40 @@ pub async fn gift_generate_codes(
 }
 
 
+
+
+#[cfg(test)]
+mod plugin_upload_tests {
+    use super::extract_zip;
+    use zip::write::SimpleFileOptions;
+
+    #[test]
+    fn extracts_lua_plugin_and_rejects_php() {
+        let root = std::env::temp_dir().join(format!(
+            "fboard-upload-{}-{}",
+            std::process::id(),
+            crate::util::random_chars(6)
+        ));
+        let archive = root.join("plugin.zip");
+        let dest = root.join("plugins");
+        std::fs::create_dir_all(&dest).unwrap();
+        {
+            let file = std::fs::File::create(&archive).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            let opts = SimpleFileOptions::default();
+            zip.start_file("Demo/plugin.json", opts).unwrap();
+            use std::io::Write;
+            zip.write_all(br#"{"code":"demo","name":"Demo","type":"feature"}"#).unwrap();
+            zip.start_file("Demo/init.lua", opts).unwrap();
+            zip.write_all(b"function handle() return true end").unwrap();
+            zip.start_file("Demo/evil.php", opts).unwrap();
+            zip.write_all(b"<?php echo 1; ?>").unwrap();
+            zip.finish().unwrap();
+        }
+        extract_zip(&archive, &dest).unwrap();
+        assert!(dest.join("Demo/plugin.json").is_file());
+        assert!(dest.join("Demo/init.lua").is_file());
+        assert!(!dest.join("Demo/evil.php").exists());
+        let _ = std::fs::remove_dir_all(root);
+    }
+}

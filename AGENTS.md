@@ -7,10 +7,12 @@ Rust 版 Fboard 面板。仓库根目录即部署仓库，Laravel/PHP 代码已�
 ```bash
 cargo test --manifest-path rust/Cargo.toml
 cargo run --manifest-path rust/Cargo.toml -- migrate
+cargo run --manifest-path rust/Cargo.toml -- migrate status
 cargo run --manifest-path rust/Cargo.toml -- serve
 ```
 
 - 仅支持 MySQL/MariaDB，`DB_CONNECTION=mysql`。
+- 迁移可重复执行；`migrate down` 需 `FBOARD_ALLOW_DESTRUCTIVE=1`。
 - 默认监听 `7001`，环境变量见 `rust/.env.example`。
 - 测试需要 Rust stable；Lua 运行时使用 `mlua` vendored 构建。
 
@@ -39,5 +41,6 @@ cargo run --manifest-path rust/Cargo.toml -- serve
 
 - 保持 `v2_*` 表与 API 响应兼容，admin SPA 不改。
 - 不在根目录恢复 Laravel、Composer、PHP 或插件 sidecar。
-- 修改 schema 时同时更新 `rust/migrations/001_schema.sql` 与 `RUST_REWRITE.md`。
+- 修改 schema 时同时更新 `rust/migrations/001_schema.sql`、对应的 `.down.sql` 与 `RUST_REWRITE.md`。
 - 提交前运行 `cargo test`；涉及插件时额外跑一次 Lua 示例。
+- 多实例部署必须配置 `REDIS_URL`，否则定时任务和配置失效只在单实例生效。

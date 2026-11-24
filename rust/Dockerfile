@@ -16,7 +16,7 @@ RUN cargo build --release --manifest-path rust/Cargo.toml
 
 FROM docker.io/library/debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --create-home --home-dir /app fboard
 
@@ -35,6 +35,8 @@ ENV FBOARD_LISTEN=0.0.0.0:7001 \
 
 USER fboard
 EXPOSE 7001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:7001/healthz >/dev/null || exit 1
 
 ENTRYPOINT ["fboard"]
 CMD ["serve"]

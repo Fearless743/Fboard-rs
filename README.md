@@ -26,10 +26,15 @@ cp rust/.env.example .env.rust
 set -a && . ./.env.rust && set +a
 
 cargo run --manifest-path rust/Cargo.toml -- migrate
+cargo run --manifest-path rust/Cargo.toml -- migrate status
 cargo run --manifest-path rust/Cargo.toml -- serve
 ```
 
 默认监听 `0.0.0.0:7001`。详细配置、插件 ABI、Docker 与验收说明见 [`rust/README.md`](rust/README.md)。
+
+## 运维端点
+
+`/healthz`、`/readyz`、`/metrics` 分别提供存活、数据库就绪和 Prometheus 基础指标。
 
 ## 测试
 

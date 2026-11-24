@@ -14,8 +14,7 @@
 /plugins/*
 !/plugins/.gitignore
 
-# Generated admin SPA assets (built from Fboard-admin)
-/public/assets/admin
+# Admin SPA assets in public/assets/admin are committed for deployments.
 
 # Tooling
 .codegraph

@@ -240,10 +240,10 @@ pub async fn payment_notify(
             Value::Object(header_map),
             &ctx,
         )
-        .await
-        .or_else(|| builtin_epay_notify(&config, &params));
+        .await;
 
     let Some(verified) = verified else {
+        tracing::error!(method = %payment.payment, "payment notify verification failed; failing closed");
         return Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "verify error"));
     };
     if verified == Value::Bool(false) || verified.is_null() {
@@ -303,33 +303,6 @@ pub async fn payment_notify(
     Ok((StatusCode::OK, "success").into_response())
 }
 
-fn builtin_epay_notify(config: &Value, params: &HashMap<String, Value>) -> Option<Value> {
-    let key = config.get("key").and_then(|v| v.as_str())?;
-    let sign = params.get("sign")?.as_str()?.to_string();
-    let mut filtered: Vec<(String, String)> = params
-        .iter()
-        .filter(|(k, _)| k.as_str() != "sign" && k.as_str() != "sign_type")
-        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-        .collect();
-    filtered.sort_by(|a, b| a.0.cmp(&b.0));
-    let query = filtered
-        .iter()
-        .map(|(k, v)| format!("{}={}", k, urlencoding::encode(v)))
-        .collect::<Vec<_>>()
-        .join("&");
-    let expected = crate::util::md5_hex(&format!("{query}{key}"));
-    if expected != sign {
-        return None;
-    }
-    let status = params.get("trade_status")?.as_str()?;
-    if status != "TRADE_SUCCESS" {
-        return None;
-    }
-    Some(json!({
-        "trade_no": params.get("out_trade_no")?.as_str()?,
-        "callback_no": params.get("trade_no").and_then(|v| v.as_str()).unwrap_or(""),
-    }))
-}
 
 pub async fn telegram_webhook(
     State(state): State<SharedState>,

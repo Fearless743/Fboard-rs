@@ -8,6 +8,7 @@ use crate::state::SharedState;
 use crate::util;
 
 const CHANNEL: &str = "fboard:ws";
+const CONFIG_CHANNEL: &str = "fboard:config";
 const REMOTE_TTL: i64 = 180;
 
 /// Optional Redis bridge for multi-instance WebSocket fan-out. When Redis is
@@ -31,6 +32,62 @@ impl RedisBridge {
 
     pub fn instance_id(&self) -> &str {
         &self.instance_id
+    }
+
+    /// Acquire a short-lived distributed lock. Returns a token that must be
+    /// passed to `unlock`. `None` means another instance owns the lock.
+    pub async fn try_lock(&self, key: &str, ttl_seconds: u64) -> Option<String> {
+        let token = format!("{}:{}", self.instance_id, util::random_chars(12));
+        let mut manager = self.manager.clone();
+        let result: redis::RedisResult<Option<String>> = redis::cmd("SET")
+            .arg(format!("fboard:lock:{key}"))
+            .arg(&token)
+            .arg("NX")
+            .arg("EX")
+            .arg(ttl_seconds.max(1))
+            .query_async(&mut manager)
+            .await;
+        match result {
+            Ok(Some(_)) => Some(token),
+            Ok(None) => None,
+            Err(err) => {
+                tracing::warn!(error = %err, "redis lock acquire failed");
+                None
+            }
+        }
+    }
+
+    pub async fn unlock(&self, key: &str, token: &str) {
+        let mut manager = self.manager.clone();
+        let script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+        let result: redis::RedisResult<i64> = redis::cmd("EVAL")
+            .arg(script)
+            .arg(1)
+            .arg(format!("fboard:lock:{key}"))
+            .arg(token)
+            .query_async(&mut manager)
+            .await;
+        if let Err(err) = result {
+            tracing::warn!(error = %err, "redis lock release failed");
+        }
+    }
+
+    /// Broadcast a settings/plugin invalidation to every other instance.
+    pub fn publish_invalidation(&self, kind: &str) {
+        let mut manager = self.manager.clone();
+        let instance_id = self.instance_id.clone();
+        let kind = kind.to_string();
+        tokio::spawn(async move {
+            let payload = json!({"kind": kind, "origin": instance_id}).to_string();
+            let result: redis::RedisResult<i64> = redis::cmd("PUBLISH")
+                .arg(CONFIG_CHANNEL)
+                .arg(payload)
+                .query_async(&mut manager)
+                .await;
+            if let Err(err) = result {
+                tracing::warn!(error = %err, "redis config publish failed");
+            }
+        });
     }
 
     /// Fire-and-forget publish; callers are synchronous WS/registry helpers.
@@ -58,7 +115,7 @@ impl RedisBridge {
         loop {
             match self.client.get_async_pubsub().await {
                 Ok(mut pubsub) => {
-                    if let Err(err) = pubsub.subscribe(CHANNEL).await {
+                    if let Err(err) = pubsub.subscribe((CHANNEL, CONFIG_CHANNEL)).await {
                         tracing::warn!(error = %err, "redis subscribe failed");
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         continue;
@@ -92,6 +149,12 @@ async fn handle(state: &SharedState, payload: Value) {
     let id = payload.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
     let now = util::now();
     match kind {
+        "settings.reloaded" => {
+            state.refresh_settings().await;
+        }
+        "plugins.reloaded" => {
+            state.plugin.reload();
+        }
         "node_online" => {
             state.ws.remote_nodes.insert(id, now + REMOTE_TTL);
         }

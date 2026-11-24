@@ -19,6 +19,9 @@ pub fn build(state: SharedState) -> Router {
 
     let admin_root = format!("/{secure_path}");
     let mut app = Router::new()
+        .route("/healthz", get(healthz))
+        .route("/readyz", get(readyz))
+        .route("/metrics", get(metrics))
         // ---- passport (v1 + v2 are aliases) ----
         .route("/api/v1/passport/auth/register", post(auth::register))
         .route("/api/v1/passport/auth/login", post(auth::login))
@@ -811,4 +814,49 @@ fn mime_for(path: &std::path::Path) -> &'static str {
         "html" | "htm" => "text/html; charset=utf-8",
         _ => "application/octet-stream",
     }
+}
+
+
+async fn healthz() -> Response {
+    (StatusCode::OK, "ok\n").into_response()
+}
+
+async fn readyz(State(state): State<SharedState>) -> Response {
+    let db_ok = sqlx::query("SELECT 1").execute(&state.db).await.is_ok();
+    if db_ok {
+        (StatusCode::OK, "ready\n").into_response()
+    } else {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "database unavailable\n",
+        )
+            .into_response()
+    }
+}
+
+async fn metrics(State(state): State<SharedState>) -> Response {
+    let users: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM v2_user")
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+    let body = format!(
+        "fboard_up 1\n\
+fboard_uptime_seconds {}\n\
+fboard_database_up {}\n\
+fboard_users_total {}\n\
+fboard_plugins_total {}\n\
+fboard_ws_connections {}\n\
+fboard_redis_enabled {}\n",
+        crate::util::now() - state.started_at,
+        if sqlx::query("SELECT 1").execute(&state.db).await.is_ok() { 1 } else { 0 },
+        users,
+        state.plugin.all().len(),
+        state.ws.connection_count(),
+        if state.redis.is_some() { 1 } else { 0 },
+    );
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4")],
+        body,
+    )
+        .into_response()
 }

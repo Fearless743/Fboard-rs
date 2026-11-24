@@ -55,6 +55,7 @@ pub async fn config_save(
         .await
         .map_err(|e| ApiError::server(format!("保存失败: {e}")))?;
     state.refresh_settings().await;
+    state.publish_invalidation("settings.reloaded");
     Ok(ok(json!(true)))
 }
 

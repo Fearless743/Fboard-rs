@@ -1,0 +1,1 @@
+import{a as e,l as t,n,o as r}from"./api-DsUsaWna.js";var i=()=>`/${e()}`;async function a(e,t){return n(`${i()}${e}`,t)}async function o(e,t){return r(`${i()}${e}`,t)}async function s(e,n){return t(`${i()}${e}`,n)}export{o as n,s as r,a as t};

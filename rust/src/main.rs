@@ -1,9 +1,7 @@
-use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::Router;
 use sqlx::mysql::MySqlPoolOptions;
-use sqlx::Connection;
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
 
@@ -12,6 +10,7 @@ mod cache;
 mod config;
 mod error;
 mod mail;
+mod migrate;
 mod models;
 mod plugin;
 mod remind;
@@ -39,49 +38,27 @@ async fn main() -> anyhow::Result<()> {
 
     match command {
         "migrate" => {
-            migrate(&cfg).await?;
-            println!("schema applied");
+            let direction = args
+                .get(2)
+                .map(|value| value.parse::<migrate::Direction>())
+                .transpose()?
+                .unwrap_or(migrate::Direction::Up);
+            if direction == migrate::Direction::Down
+                && std::env::var("FBOARD_ALLOW_DESTRUCTIVE").as_deref() != Ok("1")
+            {
+                anyhow::bail!("migrate down is destructive; set FBOARD_ALLOW_DESTRUCTIVE=1 to confirm");
+            }
+            let pool = migrate::connect(&cfg.database_url).await?;
+            migrate::run(&pool, direction).await?;
+            pool.close().await;
         }
         "serve" => serve(cfg).await?,
         other => {
             eprintln!("unknown command: {other}");
-            eprintln!("usage: fboard [serve|migrate]");
+            eprintln!("usage: fboard [serve|migrate [up|down|status]]");
             std::process::exit(2);
         }
     }
-    Ok(())
-}
-
-async fn migrate(cfg: &Config) -> anyhow::Result<()> {
-    // Ensure the database exists (MySQL/MariaDB must already be running).
-    if let Ok(options) = sqlx::mysql::MySqlConnectOptions::from_str(&cfg.database_url) {
-        let database = options.get_database().unwrap_or("").to_string();
-        if !database.is_empty() {
-            let server_url = cfg
-                .database_url
-                .rsplitn(2, '/')
-                .nth(1)
-                .map(|prefix| format!("{prefix}/"))
-                .unwrap_or_else(|| cfg.database_url.clone());
-            if let Ok(mut conn) = sqlx::MySqlConnection::connect(&server_url).await {
-                let _ = sqlx::query(&format!(
-                    "CREATE DATABASE IF NOT EXISTS `{}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
-                    database.replace('`', "")
-                ))
-                .execute(&mut conn)
-                .await;
-            }
-        }
-    }
-
-    let pool = MySqlPoolOptions::new()
-        .max_connections(2)
-        .connect(&cfg.database_url)
-        .await?;
-    sqlx::raw_sql(include_str!("../migrations/001_schema.sql"))
-        .execute(&pool)
-        .await?;
-    pool.close().await;
     Ok(())
 }
 
@@ -95,25 +72,32 @@ async fn serve(cfg: Config) -> anyhow::Result<()> {
     let loaded = settings::Settings::load(&pool).await;
     let plugin = plugin::PluginRegistry::load(&cfg);
 
+    let redis = match cfg.redis_url.clone() {
+        Some(url) => match ws_redis::RedisBridge::connect(&url).await {
+            Ok(bridge) => Some(bridge),
+            Err(err) => {
+                tracing::warn!(error = %err, "Redis unavailable; using single-instance behaviour");
+                None
+            }
+        },
+        None => None,
+    };
+
     let state = Arc::new(AppState {
         db: pool,
         settings: tokio::sync::RwLock::new(loaded),
         cache: cache::MemoryCache::default(),
         plugin: plugin.clone(),
         ws: std::sync::Arc::new(ws::WsRegistry::default()),
+        redis: redis.clone(),
         started_at: util::now(),
         cfg: cfg.clone(),
     });
 
-    if let Some(url) = cfg.redis_url.clone() {
-        match ws_redis::RedisBridge::connect(&url).await {
-            Ok(bridge) => {
-                state.ws.set_bridge(bridge.clone());
-                tokio::spawn(bridge.run(state.clone()));
-                tracing::info!("Redis WebSocket bridge enabled");
-            }
-            Err(err) => tracing::warn!(error = %err, "Redis WebSocket bridge unavailable"),
-        }
+    if let Some(bridge) = redis {
+        state.ws.set_bridge(bridge.clone());
+        tokio::spawn(bridge.run(state.clone()));
+        tracing::info!("Redis coordination enabled");
     }
 
     let router: Router = routes::build(state.clone());

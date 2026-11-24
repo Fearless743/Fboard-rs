@@ -32,8 +32,12 @@ Fboard 面板的 Rust 重构核心。保留 `v2_*` MySQL 表结构、HTTP API、
 cp rust/.env.example .env.rust
 set -a && . ./.env.rust && set +a
 
-# 建表
+# 建表（可重复执行）
 cargo run --manifest-path rust/Cargo.toml -- migrate
+cargo run --manifest-path rust/Cargo.toml -- migrate status
+
+# 回滚（危险，会删除表，需要显式确认）
+FBOARD_ALLOW_DESTRUCTIVE=1 cargo run --manifest-path rust/Cargo.toml -- migrate down
 
 # 启动
 cargo run --manifest-path rust/Cargo.toml -- serve
@@ -54,6 +58,8 @@ cargo run --manifest-path rust/Cargo.toml -- serve
 | `REDIS_URL` / `REDIS_HOST` | 可选，多实例 WebSocket 广播与跨实例设备/ack/日志同步 |
 | `FBOARD_ADMIN_DIST` | admin 产物目录，默认 `public/assets/admin` |
 | `FBOARD_UPLOAD_DIR` | 上传目录，默认 `storage/app` |
+| `FBOARD_ALLOW_DESTRUCTIVE` | 执行 `migrate down` 必须设为 `1` |
+| `FBOARD_TEST_DATABASE_URL` | 运行数据库集成测试时使用，未设置则跳过 |
 
 ## 内置功能
 
@@ -90,6 +96,9 @@ plugins/
   "methods": [],
   "flags": [],
   "permissions": ["http"],
+  "http_allowlist": ["example.com"],
+  "timeout_ms": 5000,
+  "sha256": "optional sha256 of init.lua",
   "form": {
     "enabled": {
       "type": "boolean",
@@ -104,6 +113,9 @@ plugins/
 - `methods`：支付插件可接受的 `v2_payment.payment` 名称。
 - `flags`：自定义订阅输出匹配的客户端 UA 关键字。
 - `permissions`：`http` 允许 `fboard.http.request`；`*` 允许全部 host 能力。
+- `http_allowlist`：可选的 HTTP 域名白名单，支持 `example.com` / `.example.com`。
+- `timeout_ms`：单次调用超时，默认 5000ms；通过 Lua VM hook 强制执行。
+- `sha256`：可选的 `init.lua` 完整性校验。
 - `form`：管理端配置表单，格式与旧面板一致。
 
 `init.lua` 必须定义：
@@ -159,6 +171,18 @@ Lua 状态仅加载 `string` / `table` / `math` / `utf8` / `coroutine`，不提�
 
 插件启用/停用、配置和上传在管理端完成；上传 zip 允许 `.lua`、`.json`、静态资源，解压后自动重新扫描。内置插件不可删除。
 
+## 运维端点
+
+- `GET /healthz`：进程存活检查，不依赖数据库。
+- `GET /readyz`：数据库就绪检查，失败返回 503。
+- `GET /metrics`：Prometheus 文本格式的基础指标（运行时间、DB、用户数、插件数、WS 连接数、Redis 状态）。
+
+配置 `REDIS_URL` 后：
+
+- 流量重置与提醒邮件使用 Redis 分布式锁，多实例只执行一次。
+- 配置保存、插件上传/删除会通过 Redis 广播失效事件，其他实例自动刷新。
+- WebSocket 跨实例广播继续使用 Redis pub/sub。
+
 ## 容器部署
 
 ```bash
@@ -187,8 +211,8 @@ cargo check
 
 ## 已知差异 / 后续工作
 
-- WebSocket 默认单进程内存注册表；配置 `REDIS_URL` 后启用多实例广播。
 - 管理端部分聚合统计（排行、队列、Horizon 面板）为简化实现。
-- 多实例下的流量重置/提醒任务尚未做分布式锁，生产多副本部署前需补齐。
-- 第三方 Lua 插件默认只提供 JSON/HTTP/加密等宿主能力；需要数据库访问的插件应通过宿主新增窄 API，而不是直接开库。
-- 生产部署前建议补充 HTTP+数据库集成测试、支付沙箱回归、压测与健康检查。
+- 第三方 Lua 插件只提供 JSON/HTTP/加密等宿主能力；需要数据库访问的插件应通过宿主新增窄 API。
+- Redis 未配置时按单实例运行；多实例务必配置 `REDIS_URL`。
+- 数据库迁移的回滚会删除表，仅用于测试/重建环境，生产升级前仍需备份。
+- 真实支付网关沙箱回归需在部署环境配置对应商户账号后执行；代码层面已覆盖签名/验签与 mock 网关测试。
