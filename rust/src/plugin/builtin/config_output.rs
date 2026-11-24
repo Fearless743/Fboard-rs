@@ -283,6 +283,27 @@ fn surge_proxy(server: &Value, spaced: bool) -> Option<String> {
             }
             Some(comma(parts))
         }
+        "snell" => {
+            let version = settings.get("version").and_then(|v| v.as_i64()).unwrap_or(5);
+            let psk = settings.get("psk").and_then(|v| v.as_str()).unwrap_or("");
+            let mut parts = vec![
+                format!("{name}{sep}snell"),
+                host.clone(),
+                port.clone(),
+                format!("psk={psk}"),
+                format!("client-id={password}"),
+                format!("version={version}"),
+                "udp-relay=true".into(),
+            ];
+            if version == 5 {
+                if let Some(obfs) = settings.get("obfs").and_then(|v| v.as_str()) {
+                    if obfs != "none" && !obfs.is_empty() {
+                        parts.push(format!("obfs={obfs}"));
+                    }
+                }
+            }
+            return Some(comma(parts));
+        }
         "anytls" => {
             let mut parts = vec![
                 format!("{name}{sep}anytls"),
@@ -521,6 +542,27 @@ fn loon_proxy(server: &Value) -> Option<String> {
             }
             Some(comma(parts))
         }
+        "snell" => {
+            let version = settings.get("version").and_then(|v| v.as_i64()).unwrap_or(5);
+            let psk = settings.get("psk").and_then(|v| v.as_str()).unwrap_or("");
+            let mut parts = vec![
+                format!("{name}=snell"),
+                host.clone(),
+                port.clone(),
+                format!("psk={psk}"),
+                format!("client-id={password}"),
+                format!("version={version}"),
+                "udp=true".into(),
+            ];
+            if version == 5 {
+                if let Some(obfs) = settings.get("obfs").and_then(|v| v.as_str()) {
+                    if obfs != "none" && !obfs.is_empty() {
+                        parts.push(format!("obfs={obfs}"));
+                    }
+                }
+            }
+            return Some(comma(parts));
+        }
         "anytls" => {
             let mut parts = vec![
                 format!("{name}=anytls"),
@@ -604,6 +646,26 @@ fn qx_proxy(server: &Value) -> Option<String> {
             format!("password={password}"),
             "over-tls=true".into(),
         ],
+        "snell" => {
+            let version = settings.get("version").and_then(|v| v.as_i64()).unwrap_or(5);
+            let psk = settings.get("psk").and_then(|v| v.as_str()).unwrap_or("");
+            let mut parts = vec![
+                format!("snell={host}:{port}"),
+                format!("psk={psk}"),
+                format!("client-id={password}"),
+                format!("version={version}"),
+                "udp-relay=true".into(),
+                format!("tag={}", string_field(server, "name")),
+            ];
+            if version == 5 {
+                if let Some(obfs) = settings.get("obfs").and_then(|v| v.as_str()) {
+                    if obfs != "none" && !obfs.is_empty() {
+                        parts.push(format!("obfs={obfs}"));
+                    }
+                }
+            }
+            return Some(comma(parts));
+        }
         "anytls" => {
             let mut parts = vec![
                 format!("anytls={host}:{port}"),
@@ -916,4 +978,24 @@ mod tests {
         assert!(raw.contains("vmess=vm.example.com:443"));
         assert!(raw.contains("trojan=tj.example.com:443"));
     }
+    #[test]
+    fn snell_surge_loon_qx_nodes() {
+        let server = json!({
+            "type": "snell", "name": "SN", "host": "sn.example.com", "port": 930,
+            "password": "user-key", "protocol_settings": {
+                "version": 6, "psk": "server-psk", "v6_mode": "unshaped"
+            }
+        });
+        let surge = surge_proxy(&server, true).unwrap();
+        assert!(surge.contains("SN = snell"));
+        assert!(surge.contains("client-id=user-key"));
+        assert!(surge.contains("version=6"));
+        let loon = loon_proxy(&server).unwrap();
+        assert!(loon.contains("SN=snell"));
+        assert!(loon.contains("psk=server-psk"));
+        let qx = qx_proxy(&server).unwrap();
+        assert!(qx.contains("snell=sn.example.com:930"));
+        assert!(qx.contains("client-id=user-key"));
+    }
+
 }

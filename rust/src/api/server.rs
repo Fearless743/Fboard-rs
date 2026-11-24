@@ -283,6 +283,25 @@ fn generic_node_config(node: &ServerRow, settings: &crate::settings::Settings) -
     for (k, v) in protocol_settings.as_object().cloned().unwrap_or_default() {
         config.entry(k).or_insert(v);
     }
+    // Snell 节点内核读取 snell_* 前缀字段；通用 server_config builder 未注册时使用。
+    if node.r#type == "snell" {
+        config.insert(
+            "snell_version".into(),
+            protocol_settings.get("version").cloned().unwrap_or_else(|| json!(5)),
+        );
+        config.insert(
+            "snell_psk".into(),
+            protocol_settings.get("psk").cloned().unwrap_or_else(|| json!("")),
+        );
+        config.insert(
+            "snell_obfs".into(),
+            protocol_settings.get("obfs").cloned().unwrap_or_else(|| json!("none")),
+        );
+        config.insert(
+            "snell_v6_mode".into(),
+            protocol_settings.get("v6_mode").cloned().unwrap_or_else(|| json!("default")),
+        );
+    }
     if !node.route_ids().is_empty() {
         config.insert("route_ids".into(), json!(node.route_ids()));
     }

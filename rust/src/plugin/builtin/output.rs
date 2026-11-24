@@ -257,6 +257,21 @@ fn clash_proxy(server: &Value) -> Option<Value> {
                 out.insert("sni".into(), json!(sni));
             }
         }
+        "snell" => {
+            out.insert("type".into(), json!("snell"));
+            out.insert("psk".into(), settings.get("psk").cloned().unwrap_or_else(|| json!("")));
+            out.insert("client-id".into(), json!(password));
+            let version = settings.get("version").and_then(|v| v.as_i64()).unwrap_or(5);
+            out.insert("version".into(), json!(version));
+            out.insert("udp".into(), json!(true));
+            if version == 5 {
+                if let Some(obfs) = settings.get("obfs").and_then(|v| v.as_str()) {
+                    if obfs != "none" && !obfs.is_empty() {
+                        out.insert("obfs".into(), json!(obfs));
+                    }
+                }
+            }
+        }
         _ => return None,
     }
     Some(Value::Object(out))
@@ -415,7 +430,7 @@ fn singbox_outbound(server: &Value) -> Option<Value> {
     let mut out = Map::new();
     out.insert("tag".into(), json!(name));
     out.insert("server".into(), json!(host));
-    out.insert("server_port".into(), port);
+    out.insert("server_port".into(), port.clone());
     match ty.as_str() {
         "shadowsocks" => {
             out.insert("type".into(), json!("shadowsocks"));
@@ -496,6 +511,27 @@ fn singbox_outbound(server: &Value) -> Option<Value> {
             out.insert("type".into(), json!("anytls"));
             out.insert("password".into(), json!(password));
             out.insert("tls".into(), singbox_tls(&settings));
+        }
+        "snell" => {
+            out.insert("type".into(), json!("snell"));
+            out.insert("tag".into(), json!(name));
+            out.insert("server".into(), json!(host));
+            out.insert("server_port".into(), port);
+            out.insert("psk".into(), settings.get("psk").cloned().unwrap_or_else(|| json!("")));
+            out.insert("userkey".into(), json!(password));
+            let version = settings.get("version").and_then(|v| v.as_i64()).unwrap_or(5);
+            out.insert("version".into(), json!(version));
+            if version == 5 {
+                if let Some(obfs) = settings.get("obfs").and_then(|v| v.as_str()) {
+                    if obfs != "none" && !obfs.is_empty() {
+                        out.insert("obfs_mode".into(), json!(obfs));
+                    }
+                }
+            } else if let Some(mode) = settings.get("v6_mode").and_then(|v| v.as_str()) {
+                if mode != "default" && !mode.is_empty() {
+                    out.insert("mode".into(), json!(mode));
+                }
+            }
         }
         _ => return None,
     }
@@ -870,4 +906,23 @@ mod tests {
         assert_eq!(body["servers"][0]["method"], "aes-256-gcm");
         assert_eq!(body["bytes_used"], 3072);
     }
+    #[test]
+    fn snell_clash_and_singbox_proxies() {
+        let server = json!({
+            "type": "snell", "name": "SN", "host": "sn.example.com", "port": 930,
+            "password": "user-key", "protocol_settings": {
+                "version": 5, "psk": "server-psk", "obfs": "http"
+            }
+        });
+        let clash = clash_proxy(&server).unwrap();
+        assert_eq!(clash["type"], "snell");
+        assert_eq!(clash["psk"], "server-psk");
+        assert_eq!(clash["client-id"], "user-key");
+        assert_eq!(clash["version"], 5);
+        let singbox = singbox_outbound(&server).unwrap();
+        assert_eq!(singbox["type"], "snell");
+        assert_eq!(singbox["userkey"], "user-key");
+        assert_eq!(singbox["obfs_mode"], "http");
+    }
+
 }

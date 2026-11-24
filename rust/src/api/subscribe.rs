@@ -1,4 +1,6 @@
 use base64::Engine;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use std::collections::HashMap;
 
 use axum::extract::{Path, Query, State};
@@ -30,6 +32,7 @@ const VALID_TYPES: &[&str] = &[
     "shadowquic",
     "trusttunnel",
     "masque",
+    "snell",
 ];
 
 pub async fn build_servers(state: &SharedState, user: &UserRow) -> ApiResult<Vec<Value>> {
@@ -188,6 +191,13 @@ pub fn server_password(server: &ServerRow, user: &UserRow) -> String {
             .clone()
             .filter(|v| !v.is_empty())
             .unwrap_or_else(|| user.uuid.clone()),
+        "snell" => {
+            let psk = settings.get("psk").and_then(|v| v.as_str()).unwrap_or("");
+            let mut mac = Hmac::<Sha256>::new_from_slice(psk.as_bytes())
+                .expect("HMAC accepts keys of any length");
+            mac.update(user.uuid.as_bytes());
+            hex::encode(&mac.finalize().into_bytes()[..16])
+        }
         _ => user.uuid.clone(),
     }
 }
@@ -782,6 +792,29 @@ pub(crate) fn build_link(server: &Value) -> String {
                 "anytls://{}@{addr}:{port}/?{query}#{encoded_name}\r\n",
                 urlencoding::encode(&password)
             )
+        }
+        "snell" => {
+            let version = settings.get("version").and_then(|v| v.as_i64()).unwrap_or(5);
+            let psk = settings.get("psk").and_then(|v| v.as_str()).unwrap_or("");
+            let userinfo = format!("{}:{}", urlencoding::encode(psk), urlencoding::encode(&password));
+            let mut params: Vec<(String, String)> = vec![("version".into(), version.to_string())];
+            if version == 5 {
+                let obfs = settings.get("obfs").and_then(|v| v.as_str()).unwrap_or("none");
+                if obfs != "none" && !obfs.is_empty() {
+                    params.push(("obfs".into(), obfs.into()));
+                }
+            } else {
+                let mode = settings.get("v6_mode").and_then(|v| v.as_str()).unwrap_or("default");
+                if mode != "default" && !mode.is_empty() {
+                    params.push(("mode".into(), mode.into()));
+                }
+            }
+            let query = params
+                .iter()
+                .map(|(k, v)| format!("{k}={}", urlencoding::encode(v)))
+                .collect::<Vec<_>>()
+                .join("&");
+            format!("snell://{userinfo}@{addr}:{port}/?{query}#{encoded_name}\r\n")
         }
         "socks" => {
             let creds = base64::engine::general_purpose::STANDARD

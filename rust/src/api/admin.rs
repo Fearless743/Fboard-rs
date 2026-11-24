@@ -1752,7 +1752,7 @@ pub(crate) fn builtin_protocol_definitions() -> Value {
             "transform_node_user_uuid": false,
         })
     };
-    json!({
+    let mut defs = json!({
         "shadowsocks": simple("Shadowsocks", json!({
             "cipher": {"type": "string", "label": "加密方式", "default": "aes-256-gcm"},
             "plugin": {"type": "string", "label": "插件", "default": null},
@@ -1795,7 +1795,22 @@ pub(crate) fn builtin_protocol_definitions() -> Value {
         "shadowquic": simple("ShadowQUIC", json!({})),
         "trusttunnel": simple("TrustTunnel", json!({})),
         "masque": simple("MASQUE", json!({})),
-    })
+    });
+    defs["snell"] = json!({
+        "name": "Snell",
+        "config_fields": {
+            "version": {"type": "integer", "label": "协议版本", "default": 5},
+            "psk": {"type": "string", "label": "服务端 PSK", "default": null},
+            "obfs": {"type": "string", "label": "混淆模式 (v5)", "default": "none"},
+            "v6_mode": {"type": "string", "label": "流量形态 (v6)", "default": "default"},
+            "reuse": {"type": "boolean", "label": "连接复用", "default": false}
+        },
+        "validation_rules": {},
+        "prefix": Value::Null,
+        "aliases": [],
+        "transform_node_user_uuid": true,
+    });
+    defs
 }
 
 // ---------------------------------------------------------------------------
